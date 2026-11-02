@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, ClipboardList, Loader2, Plus, RefreshCw } from 'lucide-react';
+import ConfirmDeleteDialog from '@/components/ConfirmDeleteDialog';
 import TodoCard from '@/components/TodoCard';
 import TodoFormModal from '@/components/TodoFormModal';
 import { getDueStatus } from '@/lib/dates';
-import { listTodos } from '@/lib/todoApi';
+import { deleteTodo, listTodos } from '@/lib/todoApi';
 import type { Todo } from '@/types/todo';
 
 type FormState = { todo: Todo | null };
@@ -13,6 +14,7 @@ export default function TodoListPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState<FormState | null>(null);
+  const [deleting, setDeleting] = useState<Todo | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -47,6 +49,12 @@ export default function TodoListPage() {
         ? prev.map((t) => (t.id === saved.id ? saved : t))
         : [saved, ...prev]
     );
+  }
+
+  async function handleDelete(todo: Todo) {
+    await deleteTodo(todo.id);
+    setTodos((prev) => prev.filter((t) => t.id !== todo.id));
+    setDeleting(null);
   }
 
   return (
@@ -120,7 +128,11 @@ export default function TodoListPage() {
             <ul className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {sorted.map((todo) => (
                 <li key={todo.id}>
-                  <TodoCard todo={todo} onEdit={(t) => setForm({ todo: t })} />
+                  <TodoCard
+                    todo={todo}
+                    onEdit={(t) => setForm({ todo: t })}
+                    onDelete={setDeleting}
+                  />
                 </li>
               ))}
             </ul>
@@ -133,6 +145,14 @@ export default function TodoListPage() {
           todo={form.todo}
           onClose={() => setForm(null)}
           onSaved={handleSaved}
+        />
+      )}
+
+      {deleting && (
+        <ConfirmDeleteDialog
+          todo={deleting}
+          onCancel={() => setDeleting(null)}
+          onConfirm={handleDelete}
         />
       )}
     </div>

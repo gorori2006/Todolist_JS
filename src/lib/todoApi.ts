@@ -47,3 +47,9 @@ export async function updateTodo(id: string, input: TodoInput): Promise<Todo> {
   writeTodos(todos);
   return todo;
 }
+
+export async function deleteTodo(id: string): Promise<void> {
+  const todos = readTodos();
+  if (!todos.some((t) => t.id === id)) throw new Error('対象のやることが見つかりません');
+  writeTodos(todos.filter((t) => t.id !== id));
+}

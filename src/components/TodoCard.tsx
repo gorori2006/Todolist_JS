@@ -1,4 +1,4 @@
-import { CalendarDays, Pencil } from 'lucide-react';
+import { CalendarDays, Pencil, Trash2 } from 'lucide-react';
 import { formatDueDate, getDueStatus, type DueStatus } from '@/lib/dates';
 import type { Todo } from '@/types/todo';
 
@@ -12,24 +12,41 @@ const STATUS_BADGE: Record<DueStatus, { label: string; className: string } | nul
 type Props = {
   todo: Todo;
   onEdit: (todo: Todo) => void;
+  onDelete: (todo: Todo) => void;
 };
 
-export default function TodoCard({ todo, onEdit }: Props) {
+export default function TodoCard({ todo, onEdit, onDelete }: Props) {
   const badge = STATUS_BADGE[getDueStatus(todo.due_date)];
 
   return (
-    <button
-      type="button"
-      onClick={() => onEdit(todo)}
-      className="group flex w-full flex-col gap-3 rounded-2xl bg-white p-5 text-left shadow-sm ring-1 ring-slate-200 transition duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:ring-teal-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
-    >
+    <div className="group relative flex h-full w-full flex-col gap-3 rounded-2xl bg-white p-5 text-left shadow-sm ring-1 ring-slate-200 transition duration-200 focus-within:ring-2 focus-within:ring-teal-500 hover:-translate-y-0.5 hover:shadow-lg hover:ring-teal-300">
       <div className="flex items-start justify-between gap-3">
         <h3 className="line-clamp-2 text-base font-semibold leading-snug text-slate-900">
-          {todo.title}
+          <button
+            type="button"
+            onClick={() => onEdit(todo)}
+            aria-label={`「${todo.title}」を編集`}
+            className="text-left after:absolute after:inset-0 after:rounded-2xl after:content-[''] focus:outline-none"
+          >
+            {todo.title}
+          </button>
         </h3>
-        <span className="shrink-0 rounded-full p-1.5 text-slate-400 transition group-hover:bg-teal-50 group-hover:text-teal-700">
-          <Pencil className="h-4 w-4" />
-        </span>
+        <div className="relative z-10 flex shrink-0 items-center gap-1">
+          <span
+            aria-hidden="true"
+            className="pointer-events-none rounded-full p-1.5 text-slate-400 transition group-hover:bg-teal-50 group-hover:text-teal-700"
+          >
+            <Pencil className="h-4 w-4" />
+          </span>
+          <button
+            type="button"
+            onClick={() => onDelete(todo)}
+            aria-label={`「${todo.title}」を削除`}
+            className="rounded-full p-1.5 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </div>
       </div>
 
       {todo.content && (
@@ -55,6 +72,6 @@ export default function TodoCard({ todo, onEdit }: Props) {
           </span>
         )}
       </div>
-    </button>
+    </div>
   );
 }

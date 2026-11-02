@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { toDateString, todayString } from '@/lib/dates';
+import { TODO_DRAG_TYPE, isTodoDrag } from '@/lib/dnd';
 import type { Todo } from '@/types/todo';
 
 const WEEKDAY_LABELS = ['日', '月', '火', '水', '木', '金', '土'];
@@ -19,10 +20,13 @@ type Props = {
   todos: Todo[];
   selectedDate: string | null;
   onSelectDate: (date: string | null) => void;
+  /** ToDo カードが日付にドロップされたとき */
+  onDropTodo: (todoId: string, date: string) => void;
 };
 
-export default function TodoCalendar({ todos, selectedDate, onSelectDate }: Props) {
+export default function TodoCalendar({ todos, selectedDate, onSelectDate, onDropTodo }: Props) {
   const today = todayString();
+  const [dropTarget, setDropTarget] = useState<string | null>(null);
   const [viewMonth, setViewMonth] = useState(() => {
     const base = selectedDate ? new Date(`${selectedDate}T00:00:00`) : new Date();
     return new Date(base.getFullYear(), base.getMonth(), 1);
@@ -132,10 +136,25 @@ export default function TodoCalendar({ todos, selectedDate, onSelectDate }: Prop
               <button
                 type="button"
                 onClick={() => onSelectDate(isSelected ? null : key)}
+                onDragOver={(e) => {
+                  if (!isTodoDrag(e)) return;
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = 'move';
+                  if (dropTarget !== key) setDropTarget(key);
+                }}
+                onDragLeave={() => setDropTarget((t) => (t === key ? null : t))}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setDropTarget(null);
+                  const id = e.dataTransfer.getData(TODO_DRAG_TYPE);
+                  if (id) onDropTodo(id, key);
+                }}
                 aria-pressed={isSelected}
                 aria-label={`${d.getMonth() + 1}月${d.getDate()}日${info ? `、予定 ${info.count} 件` : ''}`}
                 className={`relative flex h-10 w-10 flex-col items-center justify-center rounded-xl text-sm transition focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 ${textColor} ${
-                  isSelected
+                  key === dropTarget
+                    ? 'scale-110 bg-teal-100 font-semibold text-teal-900 ring-2 ring-teal-500'
+                    : isSelected
                     ? 'bg-teal-600 font-semibold shadow-sm'
                     : isToday
                       ? 'font-semibold ring-1 ring-inset ring-teal-500 hover:bg-teal-50'
@@ -145,7 +164,7 @@ export default function TodoCalendar({ todos, selectedDate, onSelectDate }: Prop
                 {d.getDate()}
                 {info && (
                   <span
-                    className={`absolute bottom-1.5 h-1 w-1 rounded-full ${
+                    className={`pointer-events-none absolute bottom-1.5 h-1 w-1 rounded-full ${
                       isSelected ? 'bg-white' : MARK_CLASS[info.mark]
                     } ${inMonth ? '' : 'opacity-50'}`}
                   />

@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, CalendarX2, ClipboardList, Loader2, Plus, RefreshCw, X } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AlertTriangle, CalendarCheck, CalendarX2, ClipboardList, Loader2, Plus, RefreshCw, X } from 'lucide-react';
 import ConfirmDeleteDialog from '@/components/ConfirmDeleteDialog';
 import TodoCalendar from '@/components/TodoCalendar';
 import TodoCard from '@/components/TodoCard';
 import TodoFormModal from '@/components/TodoFormModal';
 import { formatDayWithWeekday, getDueStatus } from '@/lib/dates';
-import { deleteTodo, listTodos, setTodoCompleted } from '@/lib/todoApi';
+import { deleteTodo, listTodos, setTodoCompleted, updateTodo } from '@/lib/todoApi';
 import type { Todo } from '@/types/todo';
 
 type FormState = { todo: Todo | null };
@@ -17,6 +17,16 @@ export default function TodoListPage() {
   const [form, setForm] = useState<FormState | null>(null);
   const [deleting, setDeleting] = useState<Todo | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+  const toastTimer = useRef<number | undefined>(undefined);
+
+  const showToast = useCallback((message: string) => {
+    window.clearTimeout(toastTimer.current);
+    setToast(message);
+    toastTimer.current = window.setTimeout(() => setToast(null), 3000);
+  }, []);
+
+  useEffect(() => () => window.clearTimeout(toastTimer.current), []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -69,6 +79,19 @@ export default function TodoListPage() {
       handleSaved(await setTodoCompleted(todo.id, !todo.completed));
     } catch (err) {
       window.alert(err instanceof Error ? err.message : '更新に失敗しました');
+    }
+  }
+
+  async function handleMoveDueDate(todoId: string, date: string) {
+    const todo = todos.find((t) => t.id === todoId);
+    if (!todo || todo.due_date === date) return;
+    try {
+      handleSaved(
+        await updateTodo(todo.id, { title: todo.title, content: todo.content, due_date: date })
+      );
+      showToast(`「${todo.title}」の期日を${formatDayWithWeekday(date)}に変更しました`);
+    } catch (err) {
+      window.alert(err instanceof Error ? err.message : '期日の変更に失敗しました');
     }
   }
 
@@ -145,7 +168,11 @@ export default function TodoListPage() {
                   todos={todos}
                   selectedDate={selectedDate}
                   onSelectDate={setSelectedDate}
+                  onDropTodo={(id, date) => void handleMoveDueDate(id, date)}
                 />
+                <p className="mt-3 hidden px-1 text-xs leading-relaxed text-slate-500 lg:block">
+                  カードをカレンダーの日付までドラッグすると、期日を変更できます。
+                </p>
               </aside>
 
               <section aria-labelledby="list-heading" className="min-w-0">
@@ -218,6 +245,16 @@ export default function TodoListPage() {
           onClose={() => setForm(null)}
           onSaved={handleSaved}
         />
+      )}
+
+      {toast && (
+        <div
+          role="status"
+          className="animate-scale-in fixed inset-x-4 bottom-6 z-40 mx-auto flex max-w-md items-center gap-3 rounded-2xl bg-slate-900 px-5 py-3.5 text-sm text-white shadow-xl"
+        >
+          <CalendarCheck className="h-4 w-4 shrink-0 text-teal-300" />
+          <span className="min-w-0 flex-1 truncate">{toast}</span>
+        </div>
       )}
 
       {deleting && (

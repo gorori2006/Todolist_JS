@@ -1,4 +1,6 @@
-import { CalendarDays, Check, Pencil, Trash2 } from 'lucide-react';
+import { useState } from 'react';
+import { CalendarDays, Check, GripVertical, Pencil, Trash2 } from 'lucide-react';
+import { TODO_DRAG_TYPE } from '@/lib/dnd';
 import { formatDueDate, getDueStatus, type DueStatus } from '@/lib/dates';
 import type { Todo } from '@/types/todo';
 
@@ -21,13 +23,26 @@ type Props = {
 export default function TodoCard({ todo, onEdit, onDelete, onToggleCompleted }: Props) {
   const done = todo.completed;
   const badge = done ? COMPLETED_BADGE : STATUS_BADGE[getDueStatus(todo.due_date)];
+  const [dragging, setDragging] = useState(false);
 
   return (
     <div
-      className={`group relative flex h-full w-full flex-col gap-3 rounded-2xl p-5 text-left shadow-sm ring-1 transition duration-200 focus-within:ring-2 focus-within:ring-teal-500 hover:-translate-y-0.5 hover:shadow-lg hover:ring-teal-300 ${
+      draggable
+      onDragStart={(e) => {
+        e.dataTransfer.setData(TODO_DRAG_TYPE, todo.id);
+        e.dataTransfer.effectAllowed = 'move';
+        setDragging(true);
+      }}
+      onDragEnd={() => setDragging(false)}
+      title="カレンダーの日付までドラッグすると期日を変更できます"
+      className={`group relative flex h-full w-full cursor-grab flex-col gap-3 rounded-2xl p-5 text-left shadow-sm ring-1 transition duration-200 focus-within:ring-2 focus-within:ring-teal-500 hover:-translate-y-0.5 hover:shadow-lg hover:ring-teal-300 active:cursor-grabbing ${
         done ? 'bg-slate-50 ring-slate-200/70' : 'bg-white ring-slate-200'
-      }`}
+      } ${dragging ? 'scale-[0.98] opacity-40' : ''}`}
     >
+      <GripVertical
+        aria-hidden="true"
+        className="pointer-events-none absolute left-1 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-300 opacity-0 transition group-hover:opacity-100"
+      />
       <div className="flex items-start gap-3">
         <button
           type="button"

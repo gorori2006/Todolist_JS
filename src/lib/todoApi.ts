@@ -7,7 +7,13 @@ function readTodos(): Todo[] {
   if (!raw) return [];
   try {
     const parsed: unknown = JSON.parse(raw);
-    return Array.isArray(parsed) ? (parsed as Todo[]) : [];
+    if (!Array.isArray(parsed)) return [];
+    // 完了機能の追加前に保存されたデータには completed がないため補う
+    return (parsed as Partial<Todo>[]).map((t) => ({
+      ...(t as Todo),
+      completed: t.completed ?? false,
+      completed_at: t.completed_at ?? '',
+    }));
   } catch {
     return [];
   }
@@ -30,6 +36,8 @@ export async function createTodo(input: TodoInput): Promise<Todo> {
   const todo: Todo = {
     id: crypto.randomUUID(),
     ...input,
+    completed: false,
+    completed_at: '',
     created_at: now,
     updated_at: now,
   };
@@ -43,6 +51,23 @@ export async function updateTodo(id: string, input: TodoInput): Promise<Todo> {
   if (index === -1) throw new Error('対象のやることが見つかりません');
 
   const todo: Todo = { ...todos[index], ...input, updated_at: new Date().toISOString() };
+  todos[index] = todo;
+  writeTodos(todos);
+  return todo;
+}
+
+export async function setTodoCompleted(id: string, completed: boolean): Promise<Todo> {
+  const todos = readTodos();
+  const index = todos.findIndex((t) => t.id === id);
+  if (index === -1) throw new Error('対象のやることが見つかりません');
+
+  const now = new Date().toISOString();
+  const todo: Todo = {
+    ...todos[index],
+    completed,
+    completed_at: completed ? now : '',
+    updated_at: now,
+  };
   todos[index] = todo;
   writeTodos(todos);
   return todo;

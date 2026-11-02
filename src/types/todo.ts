@@ -3,6 +3,8 @@ export type Todo = {
   title: string;
   content: string;
   due_date: string;
+  completed: boolean;
+  completed_at: string;
   created_at: string;
   updated_at: string;
 };

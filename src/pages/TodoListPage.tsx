@@ -4,7 +4,7 @@ import ConfirmDeleteDialog from '@/components/ConfirmDeleteDialog';
 import TodoCard from '@/components/TodoCard';
 import TodoFormModal from '@/components/TodoFormModal';
 import { getDueStatus } from '@/lib/dates';
-import { deleteTodo, listTodos } from '@/lib/todoApi';
+import { deleteTodo, listTodos, setTodoCompleted } from '@/lib/todoApi';
 import type { Todo } from '@/types/todo';
 
 type FormState = { todo: Todo | null };
@@ -34,6 +34,9 @@ export default function TodoListPage() {
 
   const sorted = useMemo(() => {
     return [...todos].sort((a, b) => {
+      // 未完了を上、完了済みを下（完了済みは新しく完了したものから）
+      if (a.completed !== b.completed) return a.completed ? 1 : -1;
+      if (a.completed) return b.completed_at.localeCompare(a.completed_at);
       if (!a.due_date && !b.due_date) return b.updated_at.localeCompare(a.updated_at);
       if (!a.due_date) return 1;
       if (!b.due_date) return -1;
@@ -41,7 +44,10 @@ export default function TodoListPage() {
     });
   }, [todos]);
 
-  const overdueCount = todos.filter((t) => getDueStatus(t.due_date) === 'overdue').length;
+  const overdueCount = todos.filter(
+    (t) => !t.completed && getDueStatus(t.due_date) === 'overdue'
+  ).length;
+  const completedCount = todos.filter((t) => t.completed).length;
 
   function handleSaved(saved: Todo) {
     setTodos((prev) =>
@@ -49,6 +55,14 @@ export default function TodoListPage() {
         ? prev.map((t) => (t.id === saved.id ? saved : t))
         : [saved, ...prev]
     );
+  }
+
+  async function handleToggleCompleted(todo: Todo) {
+    try {
+      handleSaved(await setTodoCompleted(todo.id, !todo.completed));
+    } catch (err) {
+      window.alert(err instanceof Error ? err.message : '更新に失敗しました');
+    }
   }
 
   async function handleDelete(todo: Todo) {
@@ -74,6 +88,9 @@ export default function TodoListPage() {
             {!loading && !error && (
               <p className="text-sm text-slate-600">
                 全 {todos.length} 件
+                {completedCount > 0 && (
+                  <span className="ml-2 text-slate-500">完了 {completedCount} 件</span>
+                )}
                 {overdueCount > 0 && (
                   <span className="ml-2 font-medium text-rose-700">期限切れ {overdueCount} 件</span>
                 )}
@@ -132,6 +149,7 @@ export default function TodoListPage() {
                     todo={todo}
                     onEdit={(t) => setForm({ todo: t })}
                     onDelete={setDeleting}
+                    onToggleCompleted={(t) => void handleToggleCompleted(t)}
                   />
                 </li>
               ))}

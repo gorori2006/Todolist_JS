@@ -1,37 +1,49 @@
-import { SHEETS_API_URL } from '@/lib/config';
 import type { Todo, TodoInput } from '@/types/todo';
 
-type ApiResponse<T> = { ok: true; data: T } | { ok: false; error: string };
+const STORAGE_KEY = 'todos';
 
-async function callSheets<T>(action: string, payload: Record<string, unknown> = {}): Promise<T> {
-  if (!SHEETS_API_URL) {
-    throw new Error('スプレッドシートがまだ接続されていません');
+function readTodos(): Todo[] {
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if (!raw) return [];
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as Todo[]) : [];
+  } catch {
+    return [];
   }
-
-  const res = await fetch(SHEETS_API_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify({ action, ...payload }),
-  });
-  if (!res.ok) {
-    throw new Error(`通信に失敗しました (${res.status})`);
-  }
-
-  const json = (await res.json()) as ApiResponse<T>;
-  if (!json.ok) {
-    throw new Error(json.error);
-  }
-  return json.data;
 }
 
-export function listTodos(): Promise<Todo[]> {
-  return callSheets<Todo[]>('list');
+function writeTodos(todos: Todo[]): void {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(todos));
+  } catch {
+    throw new Error('保存に失敗しました（ブラウザの保存容量を確認してください）');
+  }
 }
 
-export function createTodo(input: TodoInput): Promise<Todo> {
-  return callSheets<Todo>('create', { ...input });
+export async function listTodos(): Promise<Todo[]> {
+  return readTodos();
 }
 
-export function updateTodo(id: string, input: TodoInput): Promise<Todo> {
-  return callSheets<Todo>('update', { id, ...input });
+export async function createTodo(input: TodoInput): Promise<Todo> {
+  const now = new Date().toISOString();
+  const todo: Todo = {
+    id: crypto.randomUUID(),
+    ...input,
+    created_at: now,
+    updated_at: now,
+  };
+  writeTodos([...readTodos(), todo]);
+  return todo;
+}
+
+export async function updateTodo(id: string, input: TodoInput): Promise<Todo> {
+  const todos = readTodos();
+  const index = todos.findIndex((t) => t.id === id);
+  if (index === -1) throw new Error('対象のやることが見つかりません');
+
+  const todo: Todo = { ...todos[index], ...input, updated_at: new Date().toISOString() };
+  todos[index] = todo;
+  writeTodos(todos);
+  return todo;
 }

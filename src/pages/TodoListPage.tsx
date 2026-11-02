@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, ClipboardList, Loader2, Plus, RefreshCw } from 'lucide-react';
+import { AlertTriangle, CalendarX2, ClipboardList, Loader2, Plus, RefreshCw, X } from 'lucide-react';
 import ConfirmDeleteDialog from '@/components/ConfirmDeleteDialog';
+import TodoCalendar from '@/components/TodoCalendar';
 import TodoCard from '@/components/TodoCard';
 import TodoFormModal from '@/components/TodoFormModal';
-import { getDueStatus } from '@/lib/dates';
+import { formatDayWithWeekday, getDueStatus } from '@/lib/dates';
 import { deleteTodo, listTodos, setTodoCompleted } from '@/lib/todoApi';
 import type { Todo } from '@/types/todo';
 
@@ -15,6 +16,7 @@ export default function TodoListPage() {
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState<FormState | null>(null);
   const [deleting, setDeleting] = useState<Todo | null>(null);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -43,6 +45,11 @@ export default function TodoListPage() {
       return a.due_date.localeCompare(b.due_date) || b.updated_at.localeCompare(a.updated_at);
     });
   }, [todos]);
+
+  const visible = useMemo(
+    () => (selectedDate ? sorted.filter((t) => t.due_date === selectedDate) : sorted),
+    [sorted, selectedDate]
+  );
 
   const overdueCount = todos.filter(
     (t) => !t.completed && getDueStatus(t.due_date) === 'overdue'
@@ -131,29 +138,75 @@ export default function TodoListPage() {
             </div>
           )}
 
-          {!loading && !error && todos.length === 0 && (
-            <div className="mx-auto max-w-md rounded-2xl border border-dashed border-slate-300 bg-white/70 p-10 text-center">
-              <ClipboardList className="mx-auto h-10 w-10 text-teal-600" />
-              <p className="mt-4 font-semibold text-slate-900">まだやることがありません</p>
-              <p className="mt-2 text-sm text-slate-600">
-                「新しいやること」から最初の一件を登録しましょう。
-              </p>
-            </div>
-          )}
+          {!loading && !error && (
+            <div className="grid items-start gap-8 lg:grid-cols-[320px_minmax(0,1fr)]">
+              <aside className="lg:sticky lg:top-6">
+                <TodoCalendar
+                  todos={todos}
+                  selectedDate={selectedDate}
+                  onSelectDate={setSelectedDate}
+                />
+              </aside>
 
-          {!loading && !error && sorted.length > 0 && (
-            <ul className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-              {sorted.map((todo) => (
-                <li key={todo.id}>
-                  <TodoCard
-                    todo={todo}
-                    onEdit={(t) => setForm({ todo: t })}
-                    onDelete={setDeleting}
-                    onToggleCompleted={(t) => void handleToggleCompleted(t)}
-                  />
-                </li>
-              ))}
-            </ul>
+              <section aria-labelledby="list-heading" className="min-w-0">
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                  <h2 id="list-heading" className="text-lg font-bold text-slate-900">
+                    {selectedDate ? `${formatDayWithWeekday(selectedDate)}の予定` : 'すべてのやること'}
+                    <span className="ml-2 text-sm font-medium text-slate-500">{visible.length} 件</span>
+                  </h2>
+                  {selectedDate && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedDate(null)}
+                      className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-slate-600 ring-1 ring-slate-200 transition hover:bg-white hover:text-slate-900"
+                    >
+                      <X className="h-4 w-4" />
+                      すべて表示
+                    </button>
+                  )}
+                </div>
+
+                {todos.length === 0 && (
+                  <div className="rounded-2xl border border-dashed border-slate-300 bg-white/70 p-10 text-center">
+                    <ClipboardList className="mx-auto h-10 w-10 text-teal-600" />
+                    <p className="mt-4 font-semibold text-slate-900">まだやることがありません</p>
+                    <p className="mt-2 text-sm text-slate-600">
+                      「新しいやること」から最初の一件を登録しましょう。
+                    </p>
+                  </div>
+                )}
+
+                {todos.length > 0 && selectedDate && visible.length === 0 && (
+                  <div className="rounded-2xl border border-dashed border-slate-300 bg-white/70 p-10 text-center">
+                    <CalendarX2 className="mx-auto h-10 w-10 text-slate-400" />
+                    <p className="mt-4 font-semibold text-slate-900">この日の予定はありません</p>
+                    <button
+                      type="button"
+                      onClick={() => setForm({ todo: null })}
+                      className="mt-5 inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-teal-700 ring-1 ring-teal-200 transition hover:bg-teal-50"
+                    >
+                      <Plus className="h-4 w-4" />
+                      この日にやることを追加
+                    </button>
+                  </div>
+                )}
+
+                {visible.length > 0 && (
+                  <ul className="grid gap-5 sm:grid-cols-2">
+                    {visible.map((todo) => (
+                      <li key={todo.id}>
+                        <TodoCard
+                          todo={todo}
+                          onEdit={(t) => setForm({ todo: t })}
+                          onDelete={setDeleting}
+                          onToggleCompleted={(t) => void handleToggleCompleted(t)}
+                        />
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+            </div>
           )}
         </main>
       </div>
@@ -161,6 +214,7 @@ export default function TodoListPage() {
       {form && (
         <TodoFormModal
           todo={form.todo}
+          defaultDueDate={selectedDate ?? ''}
           onClose={() => setForm(null)}
           onSaved={handleSaved}
         />

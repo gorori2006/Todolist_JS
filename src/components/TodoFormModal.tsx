@@ -11,14 +11,16 @@ const inputClass =
 
 type Props = {
   todo: Todo | null;
+  /** 新規作成時の期日の初期値（カレンダーで日付を選んでいるとき） */
+  defaultDueDate?: string;
   onClose: () => void;
   onSaved: (todo: Todo) => void;
 };
 
-export default function TodoFormModal({ todo, onClose, onSaved }: Props) {
+export default function TodoFormModal({ todo, defaultDueDate = '', onClose, onSaved }: Props) {
   const [title, setTitle] = useState(todo?.title ?? '');
   const [content, setContent] = useState(todo?.content ?? '');
-  const [dueDate, setDueDate] = useState(todo?.due_date ?? '');
+  const [dueDate, setDueDate] = useState(todo?.due_date ?? defaultDueDate);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const isEdit = todo !== null;
